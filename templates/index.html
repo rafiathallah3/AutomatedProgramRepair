@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HELP-DKT: APR & Continuous Labeling Visualizer</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --card-bg: rgba(22, 26, 37, 0.65);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f5f6fa;
+            --text-muted: #8b9bb4;
+            --cyan: #00f2fe;
+            --purple: #7f00ff;
+            --emerald: #00f5a0;
+            --coral: #ff416c;
+            --panel-header: rgba(30, 36, 50, 0.8);
+            --glow-shadow: 0 0 20px rgba(0, 242, 254, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(127, 0, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* Header styling */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            backdrop-filter: blur(12px);
+            box-shadow: var(--glow-shadow);
+        }
+
+        .logo-section h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--cyan), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-section p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        select {
+            background: rgba(15, 18, 28, 0.8);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+        }
+
+        button.btn-primary {
+            background: linear-gradient(135deg, var(--purple), var(--cyan));
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(127, 0, 255, 0.3);
+        }
+
+        button.btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4);
+        }
+
+        button.btn-primary:active {
+            transform: translateY(0);
+        }
+
+        /* Top metrics and hints row */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 1.2rem 1.5rem;
+            background: var(--panel-header);
+            border-bottom: 1px solid var(--card-border);
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+            flex: 1;
+        }
+
+        /* Score Card Styling */
+        .score-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            gap: 1.5rem;
+            height: 100%;
+        }
+
+        .radial-progress-wrapper {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+
+        .radial-progress-wrapper svg {
+            width: 120px;
+            height: 120px;
+            transform: rotate(-90deg);
+        }
+
+        .radial-progress-wrapper circle {
+            fill: none;
+            stroke-width: 10;
+        }
+
+        .radial-bg {
+            stroke: rgba(255, 255, 255, 0.05);
+        }
+
+        .radial-fill {
+            stroke: var(--cyan);
+            stroke-dasharray: 314;
+            stroke-dashoffset: 314;
+            transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+            stroke-linecap: round;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--cyan);
+        }
+
+        .score-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .score-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .score-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .score-formula {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            text-align: center;
+        }
+
+        /* Hints Console styling */
+        .hints-console {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .hint-item {
+            background: rgba(255, 65, 108, 0.05);
+            border-left: 4px solid var(--coral);
+            padding: 1rem;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .hint-item.success {
+            background: rgba(0, 245, 160, 0.05);
+            border-left-color: var(--emerald);
+        }
+
+        .hint-title {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        .hint-detail {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .hint-code-box {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            white-space: pre-wrap;
+        }
+
+        .hint-code-box span.buggy {
+            color: var(--coral);
+            text-decoration: line-through;
+        }
+
+        .hint-code-box span.correct {
+            color: var(--emerald);
+            font-weight: 600;
+        }
+
+        /* Code Viewer Panel */
+        .code-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .code-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .code-container {
+            position: relative;
+            background: rgba(10, 12, 18, 0.95);
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            max-height: 400px;
+            display: flex;
+        }
+
+        .line-numbers {
+            text-align: right;
+            padding: 1rem 0.5rem 1rem 1rem;
+            color: rgba(255, 255, 255, 0.2);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            user-select: none;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .code-content {
+            padding: 1rem;
+            color: #d1d5db;
+            white-space: pre;
+            flex-grow: 1;
+        }
+
+        .code-line {
+            display: block;
+            height: 1.5rem;
+            line-height: 1.5rem;
+        }
+
+        .code-line.highlight {
+            background: rgba(255, 65, 108, 0.15);
+            border-left: 3px solid var(--coral);
+            margin-left: -1rem;
+            padding-left: calc(1rem - 3px);
+            width: calc(100% + 1rem);
+            color: #ffb3c1;
+        }
+
+        .code-line.highlight-success {
+            background: rgba(0, 245, 160, 0.15);
+            border-left: 3px solid var(--emerald);
+            margin-left: -1rem;
+            padding-left: calc(1rem - 3px);
+            width: calc(100% + 1rem);
+            color: #bbf7d0;
+        }
+
+        /* Knowledge Components Mastery Matrix */
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .matrix-item {
+            background: rgba(15, 18, 28, 0.8);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+
+        .matrix-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .matrix-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .matrix-name {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .matrix-desc {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .matrix-status {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: 800;
+        }
+
+        .matrix-status.success {
+            background: rgba(0, 245, 160, 0.1);
+            color: var(--emerald);
+            border: 1px solid var(--emerald);
+            box-shadow: 0 0 10px rgba(0, 245, 160, 0.15);
+        }
+
+        .matrix-status.failed {
+            background: rgba(255, 65, 108, 0.1);
+            color: var(--coral);
+            border: 1px solid var(--coral);
+            box-shadow: 0 0 10px rgba(255, 65, 108, 0.15);
+        }
+
+        .matrix-status.inactive {
+            background: rgba(255, 255, 255, 0.02);
+            color: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* AST Tree Viewer */
+        .ast-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .ast-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .ast-viewer {
+            background: rgba(10, 12, 18, 0.95);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #d1d5db;
+        }
+
+        .ast-viewer pre {
+            white-space: pre-wrap;
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Scrollbars styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(11, 12, 16, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1.5rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 242, 254, 0.1);
+            border-top-color: var(--cyan);
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p style="font-weight: 600; font-size: 1.1rem; color: var(--cyan);">Running Automated Program Repair Engine...</p>
+    </div>
+
+    <div class="container">
+        
+        <!-- Header -->
+        <header>
+            <div class="logo-section">
+                <h1>HELP-DKT visualizer</h1>
+                <p>Automated Program Repair (APR) & Step A (Continuous Labeling) Pipeline Dashboard</p>
+            </div>
+            <div class="controls">
+                <select id="submissionSelect">
+                    <option value="">Select Student Submission...</option>
+                </select>
+                <button class="btn-primary" id="analyzeBtn" onclick="runAnalysis()">Analyze & Repair</button>
+            </div>
+        </header>
+
+        <!-- Top Metrics & Hints Section -->
+        <div class="metrics-grid">
+            
+            <!-- Metric Card: Score -->
+            <div class="card">
+                <div class="card-header">
+                    <span>STEP A: CONTINUOUS LABEL</span>
+                    <span style="font-size: 0.75rem; color: var(--cyan); font-weight: 700;">DKT INPUT</span>
+                </div>
+                <div class="card-body">
+                    <div class="score-container">
+                        <div class="radial-progress-wrapper">
+                            <svg>
+                                <circle class="radial-bg" cx="60" cy="60" r="50"></circle>
+                                <circle class="radial-fill" id="radialFill" cx="60" cy="60" r="50"></circle>
+                            </svg>
+                            <div class="progress-text" id="progressText">0%</div>
+                        </div>
+                        <div class="score-info">
+                            <span class="score-label">Mastery Score</span>
+                            <span class="score-value" id="scoreVal">0.00</span>
+                            <div class="score-formula" id="scoreFormula">
+                                P_Mastered / P_Required
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logic Feedback / Hint Logs -->
+            <div class="card">
+                <div class="card-header">
+                    <span>AUTOMATED HINTS GENERATED (AST DIFF)</span>
+                    <span style="font-size: 0.75rem; color: var(--coral); font-weight: 700;">STUDENT FEEDBACK</span>
+                </div>
+                <div class="card-body">
+                    <div class="hints-console" id="hintsConsole">
+                        <div class="hint-item success">
+                            <div class="hint-title">Ready for Analysis</div>
+                            <div class="hint-detail">Select a student submission above and click "Analyze & Repair" to synthesize logic hints.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Code Viewer Panel -->
+        <div class="code-grid">
+            
+            <!-- Buggy Code -->
+            <div class="card">
+                <div class="card-header">
+                    <span>BUGGY STUDENT CODE</span>
+                    <span id="buggyFileName" style="font-size: 0.8rem; font-family: monospace; color: var(--text-muted);">b_student.dap</span>
+                </div>
+                <div class="code-container" id="buggyCodeContainer">
+                    <div class="line-numbers" id="buggyLineNumbers"></div>
+                    <div class="code-content" id="buggyCode">Select a submission to load...</div>
+                </div>
+            </div>
+
+            <!-- Repaired Code -->
+            <div class="card">
+                <div class="card-header">
+                    <span>REPAIRED AST CODE</span>
+                    <span style="font-size: 0.8rem; font-family: monospace; color: var(--emerald);">repaired_code.dap</span>
+                </div>
+                <div class="code-container" id="repairedCodeContainer">
+                    <div class="line-numbers" id="repairedLineNumbers"></div>
+                    <div class="code-content" id="repairedCode">Ready for analysis...</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- KC Mastery Grid -->
+        <div class="card">
+            <div class="card-header">
+                <span>PERSONALIZED P-MATRIX (KNOWLEDGE COMPONENTS MASTERY STATE)</span>
+                <span style="font-size: 0.75rem; color: var(--emerald); font-weight: 700;">10 CONCEPT VECTOR</span>
+            </div>
+            <div class="card-body">
+                <div class="matrix-grid" id="matrixGrid">
+                    <!-- Dynamic Matrix Items -->
+                </div>
+            </div>
+        </div>
+
+        <!-- AST Explorer Panel -->
+        <div class="ast-grid">
+            
+            <!-- Buggy AST -->
+            <div class="card">
+                <div class="card-header">
+                    <span>BUGGY AST JSON STRUCTURE</span>
+                </div>
+                <div class="ast-viewer" id="buggyAST">
+                    <pre>Select a submission to load...</pre>
+                </div>
+            </div>
+
+            <!-- Correct AST -->
+            <div class="card">
+                <div class="card-header">
+                    <span>CORRECT SOLUTION AST JSON STRUCTURE</span>
+                </div>
+                <div class="ast-viewer" id="correctAST">
+                    <pre>Ready for analysis...</pre>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const conceptNames = [
+            "Variables & Output",
+            "Input & Arithmetic",
+            "Conditionals",
+            "Iteration & Loops",
+            "Modulo Arithmetic",
+            "Arrays & Lists",
+            "Tuples",
+            "Dictionaries",
+            "Factorial Logic",
+            "Complex Logic"
+        ];
+
+        // Load submissions dropdown on load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchSubmissions();
+            renderEmptyMatrix();
+        });
+
+        function fetchSubmissions() {
+            fetch('/api/submissions')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const select = document.getElementById('submissionSelect');
+                        data.submissions.forEach(sub => {
+                            const opt = document.createElement('option');
+                            opt.value = sub.filename;
+                            opt.textContent = `${sub.filename} (Challenge: ${sub.challenge_id.toUpperCase()})`;
+                            select.appendChild(opt);
+                        });
+                    }
+                });
+        }
+
+        function renderEmptyMatrix() {
+            const grid = document.getElementById('matrixGrid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                grid.appendChild(createMatrixDOM(`c_${i+1}`, conceptNames[i], 'inactive'));
+            }
+        }
+
+        function createMatrixDOM(code, name, status) {
+            const item = document.createElement('div');
+            item.className = 'matrix-item';
+            
+            const info = document.createElement('div');
+            info.className = 'matrix-info';
+            
+            const nameEl = document.createElement('span');
+            nameEl.className = 'matrix-name';
+            nameEl.textContent = code;
+            
+            const descEl = document.createElement('span');
+            descEl.className = 'matrix-desc';
+            descEl.textContent = name;
+            
+            info.appendChild(nameEl);
+            info.appendChild(descEl);
+            
+            const statusEl = document.createElement('div');
+            statusEl.className = `matrix-status ${status}`;
+            
+            if (status === 'success') {
+                statusEl.textContent = '1';
+            } else if (status === 'failed') {
+                statusEl.textContent = '0';
+            } else {
+                statusEl.textContent = '-';
+            }
+            
+            item.appendChild(info);
+            item.appendChild(statusEl);
+            return item;
+        }
+
+        function runAnalysis() {
+            const select = document.getElementById('submissionSelect');
+            const filename = select.value;
+            if (!filename) {
+                alert('Please select a student submission first!');
+                return;
+            }
+
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.add('active');
+
+            fetch(`/api/analyze?filename=${encodeURIComponent(filename)}`)
+                .then(res => res.json())
+                .then(data => {
+                    overlay.classList.remove('active');
+                    if (data.success) {
+                        renderDashboard(data);
+                    } else {
+                        alert('Analysis failed: ' + data.error);
+                    }
+                })
+                .catch(err => {
+                    overlay.classList.remove('remove');
+                    alert('Error running analysis: ' + err);
+                });
+        }
+
+        function renderDashboard(data) {
+            // Update file name headers
+            document.getElementById('buggyFileName').textContent = data.filename;
+
+            // Render raw code views
+            renderCodeView('buggyCode', 'buggyLineNumbers', data.buggy_code, data.hints.map(h => h.line_num));
+            renderCodeView('repairedCode', 'repairedLineNumbers', data.repaired_code, data.hints.map(h => h.line_num).filter(x => x !== null), true);
+
+            // Render AST JSON views
+            document.getElementById('buggyAST').innerHTML = `<pre>${JSON.stringify(data.buggy_ast, null, 2)}</pre>`;
+            document.getElementById('correctAST').innerHTML = `<pre>${JSON.stringify(data.correct_ast, null, 2)}</pre>`;
+
+            // Highlight difference in AST JSON by finding and editing text (simple styling wrapper)
+            // Just simple monospace styling for display
+            
+            // Render hints
+            const hintsConsole = document.getElementById('hintsConsole');
+            hintsConsole.innerHTML = '';
+            
+            if (data.hints.length === 0) {
+                hintsConsole.innerHTML = `
+                    <div class="hint-item success">
+                        <div class="hint-title">No Bug Detected</div>
+                        <div class="hint-detail">The student's AST matches the reference solution perfectly!</div>
+                    </div>
+                `;
+            } else {
+                data.hints.forEach(hint => {
+                    const item = document.createElement('div');
+                    item.className = 'hint-item';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'hint-title';
+                    title.textContent = hint.line_num ? `Line ${hint.line_num}: Logic Error Detected` : 'General Logic Mismatch';
+                    
+                    const detail = document.createElement('div');
+                    detail.className = 'hint-detail';
+                    detail.textContent = hint.detail;
+                    
+                    const codeBox = document.createElement('div');
+                    codeBox.className = 'hint-code-box';
+                    
+                    if (hint.original_line) {
+                        codeBox.innerHTML = `Your code:      <span class="buggy">${escapeHtml(hint.original_line)}</span><br>Expected logic: <span class="correct">${escapeHtml(hint.correct_expr)}</span>`;
+                    } else {
+                        codeBox.innerHTML = `Original: <span class="buggy">${escapeHtml(hint.buggy_expr)}</span><br>Correct:  <span class="correct">${escapeHtml(hint.correct_expr)}</span>`;
+                    }
+                    
+                    item.appendChild(title);
+                    item.appendChild(detail);
+                    item.appendChild(codeBox);
+                    hintsConsole.appendChild(item);
+                });
+            }
+
+            // Render Score and Radial Progress
+            const scorePct = Math.round(data.score * 100);
+            document.getElementById('progressText').textContent = `${scorePct}%`;
+            document.getElementById('scoreVal').textContent = data.score.toFixed(2);
+            
+            // Recalculate radial circle offset (radius=50, perimeter=314)
+            const strokeOffset = 314 - (314 * data.score);
+            document.getElementById('radialFill').style.strokeDashoffset = strokeOffset;
+            
+            // Formula text
+            const problemConNum = data.required_concepts.reduce((a, b) => a + b, 0);
+            const personalizedConNum = data.personalized_vector.reduce((a, b) => a + b, 0);
+            document.getElementById('scoreFormula').textContent = `${personalizedConNum} / ${problemConNum} mastered`;
+
+            // Render Q-Matrix grid
+            const grid = document.getElementById('matrixGrid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                const req = data.required_concepts[i];
+                const mas = data.personalized_vector[i];
+                let status = 'inactive';
+                if (req === 1) {
+                    status = (mas === 1) ? 'success' : 'failed';
+                }
+                grid.appendChild(createMatrixDOM(`c_${i+1}`, conceptNames[i], status));
+            }
+        }
+
+        function renderCodeView(codeId, lineNumbersId, codeStr, highlightLines, isSuccess = false) {
+            const codeEl = document.getElementById(codeId);
+            const lineNumEl = document.getElementById(lineNumbersId);
+            
+            codeEl.innerHTML = '';
+            lineNumEl.innerHTML = '';
+            
+            const lines = codeStr.split('\n');
+            lines.forEach((line, idx) => {
+                const lineNum = idx + 1;
+                const isHighlight = highlightLines.includes(lineNum);
+                
+                // Add line number
+                const numSpan = document.createElement('span');
+                numSpan.textContent = lineNum;
+                numSpan.style.display = 'block';
+                numSpan.style.height = '1.5rem';
+                numSpan.style.lineHeight = '1.5rem';
+                if (isHighlight) {
+                    numSpan.style.color = isSuccess ? 'var(--emerald)' : 'var(--coral)';
+                    numSpan.style.fontWeight = '800';
+                }
+                lineNumEl.appendChild(numSpan);
+                
+                // Add code line
+                const lineSpan = document.createElement('span');
+                lineSpan.className = `code-line ${isHighlight ? (isSuccess ? 'highlight-success' : 'highlight') : ''}`;
+                lineSpan.textContent = line || ' '; // Keep space for empty lines to render height correctly
+                codeEl.appendChild(lineSpan);
+            });
+        }
+
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

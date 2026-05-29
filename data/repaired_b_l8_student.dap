@@ -1,0 +1,11 @@
+program Repaired_b_l8_student
+dictionary
+    alas, tinggi, luas, keliling : integer
+algorithm
+    read alas
+    read tinggi
+    luas <- (alas * tinggi)
+    keliling <- ((alas + tinggi) * 2)
+    write luas
+    write keliling
+endprogram

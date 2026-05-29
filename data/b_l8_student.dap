@@ -1,0 +1,14 @@
+program WhereIsMimin
+dictionary
+    alas, tinggi : integer
+    luas, keliling : integer
+algorithm
+    read alas
+    read tinggi
+
+    keliling <- 2 * (alas + tinggi)
+    luas <- alas * tinggi
+
+    write luas
+    write keliling
+endprogram
