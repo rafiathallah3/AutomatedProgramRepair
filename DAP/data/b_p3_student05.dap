@@ -1,0 +1,12 @@
+program RectangleCalc
+dictionary
+    panjang, lebar : integer
+    luas, keliling : integer
+algorithm
+    read panjang
+    read lebar
+    luas <- (panjang + lebar) * 2
+    keliling <- panjang * lebar
+    write luas
+    write keliling
+endprogram

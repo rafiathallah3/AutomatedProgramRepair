@@ -1,6 +1,12 @@
 # Automated Program Repair (APR) Behind the Scenes in HELP-DKT
 
-This document explains the "behind-the-scenes" mechanics of how Automated Program Repair (APR) functions within the HELP-DKT framework, how it connects to the Personalized P-Matrix, and how you can implement a custom pipeline for your pseudocode language, **DAP**.
+This directory contains the implementation of our custom Automated Program Repair (APR) system adapted for the research framework of HELP-DKT. 
+
+The workspace is organized into two separate pipelines:
+1. **DAP Pipeline:** Located in [DAP/](file:///c:/Users/rafia/Documents/Belajar_Program/belajar_python/HELP_DKT/Automated_Program_Repair/DAP), which repairs student pseudocode submissions using the custom DAP compiler.
+2. **Go Pipeline:** Located in [Go/](file:///c:/Users/rafia/Documents/Belajar_Program/belajar_python/HELP_DKT/Automated_Program_Repair/Go), which repairs student Go source files using Go's standard parser libraries.
+
+Both pipelines leverage a unified AST translation format to share the core alignment, normalization, and repair algorithms of the APR engine.
 
 ---
 
@@ -478,6 +484,32 @@ If any of these error types are identified for a concept, the student's mastery 
    * **Loop Iteration Mismatch (`LP`):** Mismatch in loop counters or missing updates mapping to Concept 4 (Iteration & Loops).
 
 To add these, we simply extend the recursive diffing function in `repair.py` (`diff_and_repair`) to check for these nodes (like `CallNode` argument lengths, or `VarAccessToken` index nodes) and flag the corresponding custom error categories.
+
+### Q: What if students have a different correct approach? Will they be flagged as buggy?
+
+**A: No. Buggy vs. Correct status is decided by unit tests, not by code similarity.**
+
+1. **Unit Tests Decide the Grade:** The first step of the pipeline executes the student's code against the problem's unit tests. If the student's code passes all unit tests, it is **never** flagged as buggy. It is labeled as correct (`c_...`) immediately, regardless of how different their logic is from the instructor's code.
+2. **Pool Expansion:** Since their code is correct and uses a new style, the system harvests its AST and adds it to the correct reference pool (the solution space).
+3. **Multi-Template Matching:** If subsequent students write buggy code using this new style, the engine automatically matches their code against this new template (as it yields the lowest edit distance), correcting their bugs without forcing them into the instructor's template style.
+
+### Q: Can we use students' own correct submissions as reference solutions for other students?
+
+**A: Yes, absolutely! This is the crowdsourced design philosophy of CLARA.**
+
+1. **How it works:** When a student submits code that passes all unit tests, the system automatically saves their code in the template pool (e.g., as `c_l8_student_123.go` or `c_l8_student_123.dap`).
+2. **Comparison matching:** When a subsequent student submits a buggy code, the APR engine compares their AST to *every* correct template in the folder (including the newly added student template).
+3. **Loop matching example:** If a student writes a correct submission using a `while` loop, that file becomes a reference. Later, if another student submits a buggy code using a `while` loop, the engine dynamically matches their code against the `while` loop student template because it has the highest structural similarity (yielding the fewest edit logs). This generates minimal, highly targeted hints tailored exactly to their chosen approach.
+
+### Q: How does our custom APR engine compare to the official CLARA tool (PLDI '18)?
+
+**A: Our custom APR engine is a lightweight, simplified adaptation of CLARA tailored for DAP and Go:**
+
+| CLARA Phase | CLARA Implementation (PLDI '18) | Our Custom Implementation |
+| :--- | :--- | :--- |
+| **1. Solution Space Mining** | Runs correct submissions, collects execution traces, and clusters them using dynamic trace/control-flow similarity to obtain centroids. | **Multi-Template Matching:** Replaces single-reference files with a pool of correct submissions (`c_*.dap` / `c_*.go`). Buggy code is matched against all candidates on the fly to find the closest structure. |
+| **2. Alignment** | Constructs Control-Flow Graphs (CFGs) and aligns basic blocks and variable usage. | **LCS-based AST Statement Alignment & Normalization:** Aligns statements in lists based on node similarity. Normalizes ASTs (inlining variables) to eliminate styling differences (e.g. variables vs. direct printing). |
+| **3. Repair Synthesis** | Formulates constraint models and solves them using constraint solvers (e.g., `lpsolve` / Z3) to rewrite local expressions. | **Recursive AST Diffing:** Walks matching AST subtrees recursively, substituting mismatching operators, values, and names directly and verifying via unit tests. |
 
 
 

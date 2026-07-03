@@ -1,0 +1,15 @@
+program CheckSign
+dictionary
+    x : integer
+algorithm
+    read x
+    if x < 0 then
+        write -1
+    else
+        if x > 0 then
+            write 1
+        else
+            write 0
+        endif
+    endif
+endprogram

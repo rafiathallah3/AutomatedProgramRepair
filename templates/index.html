@@ -85,6 +85,38 @@
             align-items: center;
         }
 
+        /* Language Toggle styling */
+        .lang-selector-group {
+            display: flex;
+            background: rgba(15, 18, 28, 0.8);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 2px;
+            gap: 2px;
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem 1.2rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn:hover {
+            color: var(--text-main);
+        }
+
+        .lang-btn.active {
+            background: linear-gradient(135deg, var(--purple), var(--cyan));
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(0, 242, 254, 0.2);
+        }
+
         select {
             background: rgba(15, 18, 28, 0.8);
             border: 1px solid var(--card-border);
@@ -494,6 +526,62 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
+        /* Misconception diagnostics style */
+        .misconception-item {
+            background: rgba(255, 65, 108, 0.05);
+            border: 1px solid rgba(255, 65, 108, 0.15);
+            border-radius: 12px;
+            padding: 1.2rem;
+            display: flex;
+            gap: 1.2rem;
+            align-items: flex-start;
+            transition: all 0.3s ease;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .misconception-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 65, 108, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 65, 108, 0.05);
+        }
+
+        .misconception-badge {
+            background: linear-gradient(135deg, var(--coral), #ff85a2);
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 800;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-family: 'Fira Code', monospace;
+            box-shadow: 0 2px 8px rgba(255, 65, 108, 0.2);
+            flex-shrink: 0;
+        }
+
+        .misconception-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .misconception-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .misconception-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .misconception-line {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--coral);
+            margin-top: 0.2rem;
+        }
+
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -548,6 +636,10 @@
                 <p>Automated Program Repair (APR) & Step A (Continuous Labeling) Pipeline Dashboard</p>
             </div>
             <div class="controls">
+                <div class="lang-selector-group">
+                    <button class="lang-btn active" id="langDapBtn" onclick="setLanguage('dap')">DAP</button>
+                    <button class="lang-btn" id="langGoBtn" onclick="setLanguage('go')">Go</button>
+                </div>
                 <select id="submissionSelect">
                     <option value="">Select Student Submission...</option>
                 </select>
@@ -602,6 +694,19 @@
 
         </div>
 
+        <!-- Misconceptions Panel -->
+        <div class="card" id="misconceptionCard" style="display: none; margin-top: 1rem; animation: fadeIn 0.5s ease;">
+            <div class="card-header">
+                <span>DETECTED COGNITIVE MISCONCEPTIONS (ListKC.pdf)</span>
+                <span style="font-size: 0.75rem; color: var(--coral); font-weight: 700;">DIAGNOSTICS</span>
+            </div>
+            <div class="card-body">
+                <div id="misconceptionsList" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Dynamic Misconceptions -->
+                </div>
+            </div>
+        </div>
+
         <!-- Code Viewer Panel -->
         <div class="code-grid">
             
@@ -621,7 +726,7 @@
             <div class="card">
                 <div class="card-header">
                     <span>REPAIRED AST CODE</span>
-                    <span style="font-size: 0.8rem; font-family: monospace; color: var(--emerald);">repaired_code.dap</span>
+                    <span id="repairedFileName" style="font-size: 0.8rem; font-family: monospace; color: var(--emerald);">repaired_code.dap</span>
                 </div>
                 <div class="code-container" id="repairedCodeContainer">
                     <div class="line-numbers" id="repairedLineNumbers"></div>
@@ -685,6 +790,61 @@
             "Complex Logic"
         ];
 
+        let currentLanguage = 'dap';
+
+        function setLanguage(lang) {
+            if (currentLanguage === lang) return;
+            currentLanguage = lang;
+            
+            // Toggle active classes on buttons
+            document.getElementById('langDapBtn').classList.toggle('active', lang === 'dap');
+            document.getElementById('langGoBtn').classList.toggle('active', lang === 'go');
+            
+            // Reset dropdown
+            const select = document.getElementById('submissionSelect');
+            select.innerHTML = '<option value="">Select Student Submission...</option>';
+            
+            // Clear current dashboard state
+            resetDashboard();
+            
+            // Fetch submissions for new language
+            fetchSubmissions();
+        }
+
+        function resetDashboard() {
+            document.getElementById('buggyFileName').textContent = currentLanguage === 'go' ? 'b_student.go' : 'b_student.dap';
+            document.getElementById('repairedFileName').textContent = currentLanguage === 'go' ? 'repaired_code.go' : 'repaired_code.dap';
+            
+            document.getElementById('buggyCode').textContent = 'Select a submission to load...';
+            document.getElementById('buggyLineNumbers').innerHTML = '';
+            document.getElementById('repairedCode').textContent = 'Ready for analysis...';
+            document.getElementById('repairedLineNumbers').innerHTML = '';
+            
+            // Reset Misconceptions
+            document.getElementById('misconceptionCard').style.display = 'none';
+            document.getElementById('misconceptionsList').innerHTML = '';
+            
+            document.getElementById('buggyAST').innerHTML = '<pre>Select a submission to load...</pre>';
+            document.getElementById('correctAST').innerHTML = '<pre>Ready for analysis...</pre>';
+            
+            // Reset Mastery Score
+            document.getElementById('progressText').textContent = '0%';
+            document.getElementById('scoreVal').textContent = '0.00';
+            document.getElementById('radialFill').style.strokeDashoffset = 314;
+            document.getElementById('scoreFormula').textContent = 'P_Mastered / P_Required';
+            
+            // Reset Matrix
+            renderEmptyMatrix();
+            
+            // Reset Hints Console
+            document.getElementById('hintsConsole').innerHTML = `
+                <div class="hint-item success">
+                    <div class="hint-title">Ready for Analysis</div>
+                    <div class="hint-detail">Select a student submission above and click "Analyze & Repair" to synthesize logic hints.</div>
+                </div>
+            `;
+        }
+
         // Load submissions dropdown on load
         window.addEventListener('DOMContentLoaded', () => {
             fetchSubmissions();
@@ -692,7 +852,7 @@
         });
 
         function fetchSubmissions() {
-            fetch('/api/submissions')
+            fetch(`/api/submissions?lang=${currentLanguage}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
@@ -760,7 +920,7 @@
             const overlay = document.getElementById('loadingOverlay');
             overlay.classList.add('active');
 
-            fetch(`/api/analyze?filename=${encodeURIComponent(filename)}`)
+            fetch(`/api/analyze?filename=${encodeURIComponent(filename)}&lang=${currentLanguage}`)
                 .then(res => res.json())
                 .then(data => {
                     overlay.classList.remove('active');
@@ -771,7 +931,7 @@
                     }
                 })
                 .catch(err => {
-                    overlay.classList.remove('remove');
+                    overlay.classList.remove('active');
                     alert('Error running analysis: ' + err);
                 });
         }
@@ -779,6 +939,51 @@
         function renderDashboard(data) {
             // Update file name headers
             document.getElementById('buggyFileName').textContent = data.filename;
+            document.getElementById('repairedFileName').textContent = 'repaired_' + data.filename;
+
+            // Render Misconceptions
+            const miscCard = document.getElementById('misconceptionCard');
+            const miscList = document.getElementById('misconceptionsList');
+            miscList.innerHTML = '';
+            
+            if (data.misconceptions && data.misconceptions.length > 0) {
+                miscCard.style.display = 'block';
+                data.misconceptions.forEach(m => {
+                    const item = document.createElement('div');
+                    item.className = 'misconception-item';
+                    
+                    const badge = document.createElement('div');
+                    badge.className = 'misconception-badge';
+                    badge.textContent = m.code;
+                    
+                    const content = document.createElement('div');
+                    content.className = 'misconception-content';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'misconception-title';
+                    title.textContent = m.title;
+                    
+                    const desc = document.createElement('div');
+                    desc.className = 'misconception-desc';
+                    desc.textContent = m.description;
+                    
+                    content.appendChild(title);
+                    content.appendChild(desc);
+                    
+                    if (m.line_num) {
+                        const line = document.createElement('div');
+                        line.className = 'misconception-line';
+                        line.textContent = `Location: Line ${m.line_num}`;
+                        content.appendChild(line);
+                    }
+                    
+                    item.appendChild(badge);
+                    item.appendChild(content);
+                    miscList.appendChild(item);
+                });
+            } else {
+                miscCard.style.display = 'none';
+            }
 
             // Render raw code views
             renderCodeView('buggyCode', 'buggyLineNumbers', data.buggy_code, data.hints.map(h => h.line_num));

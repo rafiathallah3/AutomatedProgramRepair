@@ -1,0 +1,13 @@
+program SumToN
+dictionary
+    n, i, total : integer
+algorithm
+    total <- 0
+    i <- 1
+    read n
+    while i <= n do
+        total <- total + i
+        i <- i + 1
+    endwhile
+    write total
+endprogram

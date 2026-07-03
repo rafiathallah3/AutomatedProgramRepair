@@ -1,20 +1,24 @@
-import os
 import csv
-import json
-import subprocess
+from pathlib import Path
+from typing import Any
 import repair
 
 # A mapping of challenge IDs to their base required concepts in the Q-Matrix
-CHALLENGE_CONCEPTS = {
+CHALLENGE_CONCEPTS: dict[str, list[int]] = {
     "l8": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],   # Concepts 1-5 required
     "362": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
     "371": [0, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+    "p1": [1, 1, 0, 1, 0, 0, 0, 0, 0, 0],   # Variables & Loop Concepts
+    "p2": [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],   # Variables & Conditional Concepts
+    "p3": [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],   # Variables & Calculation Concepts
 }
 
-def load_qmatrix(qmatrix_path):
+
+def load_qmatrix(qmatrix_path: str | Path) -> None:
     """Loads default Q-Matrix values from problemQmatrix.CSV if available."""
-    if os.path.exists(qmatrix_path):
-        with open(qmatrix_path, "r") as f:
+    q_path = Path(qmatrix_path)
+    if q_path.exists():
+        with open(q_path, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             for row in reader:
                 if not row:
@@ -22,6 +26,7 @@ def load_qmatrix(qmatrix_path):
                 challenge_id = row[0]
                 vector = [int(x) for x in row[1:]]
                 CHALLENGE_CONCEPTS[challenge_id] = vector
+
 
 def detect_ast_failures(buggy, correct, current_context=None):
     """
@@ -97,9 +102,25 @@ def detect_ast_failures(buggy, correct, current_context=None):
         failed_concepts.update(detect_ast_failures(buggy.get("body"), correct.get("body"), "WhileNode"))
         
     elif t == "ListNode":
-        if len(buggy.get("program", [])) == len(correct.get("program", [])):
-            for b_stmt, c_stmt in zip(buggy.get("program", []), correct.get("program", [])):
-                failed_concepts.update(detect_ast_failures(b_stmt, c_stmt, context))
+        b_prog = buggy.get("program", [])
+        c_prog = correct.get("program", [])
+        # Align statements structurally so missing/extra statements are
+        # detected instead of silently yielding a clean vector.
+        matches, unmatched_b, unmatched_c = repair.align_lists(b_prog, c_prog)
+        for b_idx, c_idx in matches:
+            failed_concepts.update(detect_ast_failures(b_prog[b_idx], c_prog[c_idx], context))
+        for idx_list, prog in ((unmatched_b, b_prog), (unmatched_c, c_prog)):
+            for idx in idx_list:
+                stmt = prog[idx]
+                s_type = stmt.get("type") if isinstance(stmt, dict) else None
+                if s_type == "IfNode":
+                    failed_concepts.add(3)  # Conditionals
+                elif s_type in ("WhileNode", "ForNode"):
+                    failed_concepts.add(4)  # Loops/Iteration
+                elif s_type == "VarAssignNode":
+                    failed_concepts.add(1)  # Variables
+                else:
+                    failed_concepts.add(2)  # Sequence/Calculation
                 
     elif t == "DictionaryNode":
         if len(buggy.get("variables", [])) == len(correct.get("variables", [])):
@@ -110,19 +131,22 @@ def detect_ast_failures(buggy, correct, current_context=None):
             
     return failed_concepts
 
-def generate_pmatrix_file(data_dir, qmatrix_path):
+def generate_pmatrix_file(data_dir: str | Path, qmatrix_path: str | Path) -> None:
     """Automatically constructs P-matrix-out.CSV based on folder submissions and AST diffs."""
     load_qmatrix(qmatrix_path)
     
     pmatrix_rows = []
+    data_path = Path(data_dir)
     
     # Scan all files in directory
-    files = [f for f in os.listdir(data_dir) if f.endswith(".dap") and not f.startswith("repaired_")]
+    files = []
+    if data_path.exists() and data_path.is_dir():
+        for f in data_path.iterdir():
+            if f.is_file() and f.name.endswith(".dap") and not f.name.startswith("repaired_") and not f.name.startswith("temp_repaired_"):
+                files.append(f.name)
     
     for filename in files:
-        # Determine challenge id
-        parts = filename.split("_")
-        challenge_id = parts[1] if len(parts) > 1 else filename.replace("b_", "").replace("c_", "").replace(".dap", "")
+        challenge_id = repair.get_challenge_id(filename)
         
         # Get base concepts vector from Q-matrix
         base_vector = CHALLENGE_CONCEPTS.get(challenge_id, [1, 1, 1, 1, 1, 0, 0, 0, 0, 0]).copy()
@@ -134,20 +158,30 @@ def generate_pmatrix_file(data_dir, qmatrix_path):
             
         elif filename.startswith("b_"):
             # Buggy files need AST comparison to identify concept failures
-            buggy_path = os.path.join(data_dir, filename)
-            ref_path = repair.find_reference_file(filename, data_dir)
+            buggy_path = data_path / filename
+            ref_paths = repair.find_reference_files(filename, data_path)
             
-            if not ref_path:
+            if not ref_paths:
                 print(f"[WARN] No correct reference template found for buggy code {filename}. Defaulting to base vector.")
                 pmatrix_rows.append([filename] + [str(x) for x in base_vector])
                 continue
                 
             try:
                 buggy_ast = repair.get_ast(buggy_path)
-                correct_ast = repair.get_ast(ref_path)
                 
-                # Detect which concept index (1-indexed) failed
-                failures = detect_ast_failures(buggy_ast, correct_ast)
+                best_failures = None
+                best_ref_path = None
+                
+                for ref_path in ref_paths:
+                    ref_path_obj = Path(ref_path)
+                    correct_ast = repair.get_ast(ref_path_obj)
+                    failures = detect_ast_failures(buggy_ast, correct_ast)
+                    if best_failures is None or len(failures) < len(best_failures):
+                        best_failures = failures
+                        best_ref_path = ref_path_obj
+                
+                failures = best_failures
+                print(f"[BUILD] {filename}: chose reference {best_ref_path.name} with {len(failures)} failures.")
                 
                 # Flip mastery of failed concepts from 1 to 0
                 for f_concept in failures:
@@ -163,14 +197,16 @@ def generate_pmatrix_file(data_dir, qmatrix_path):
                 pmatrix_rows.append([filename] + [str(x) for x in base_vector])
                 
     # Save to P-matrix-out.CSV
-    pmatrix_path = os.path.join(data_dir, "P-matrix-out.CSV")
-    with open(pmatrix_path, "w", newline="") as f:
+    pmatrix_path = data_path / "P-matrix-out.CSV"
+    with open(pmatrix_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerows(pmatrix_rows)
     print(f"\n[SUCCESS] Generated and saved P-Matrix to: {pmatrix_path}")
 
+
 if __name__ == "__main__":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(current_dir, "data")
-    qmatrix_path = os.path.join(current_dir, "..", "HELP-DKT", "Code_HELP_DKT", "data", "ModelInput", "problemQmatrix.CSV")
+    current_dir = Path(__file__).parent
+    data_dir = current_dir / "data"
+    qmatrix_path = current_dir.parent.parent / "HELP-DKT" / "Code_HELP_DKT" / "data" / "ModelInput" / "problemQmatrix.CSV"
     generate_pmatrix_file(data_dir, qmatrix_path)
+

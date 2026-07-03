@@ -1,6 +1,5 @@
 import unittest
 import os
-import shutil
 import repair
 
 class TestDAPProgramRepair(unittest.TestCase):
@@ -60,6 +59,38 @@ class TestDAPProgramRepair(unittest.TestCase):
         passed, msg = repair.run_unit_tests(self.repaired_file, "l8")
         self.assertTrue(passed, f"Repaired code failed unit tests: {msg}")
         print("\n[TEST EXECUTION] Unit test successfully repaired buggy comparison operator and verified code behavior.")
+
+    def test_ast_normalization(self):
+        """Verifies that single-use variables are inlined during normalization."""
+        dummy_ast = {
+            "type": "ListNode",
+            "program": [
+                {
+                    "type": "VarAssignNode",
+                    "name": "result",
+                    "value": {"type": "NumberNode", "value": "42"}
+                },
+                {
+                    "type": "CallNode",
+                    "call": {"name": "write"},
+                    "args": [{"type": "VarAccessToken", "name": "result"}]
+                }
+            ]
+        }
+        normalized = repair.normalize_ast(dummy_ast)
+        # Check that the assignment was removed (ListNode program length becomes 1)
+        self.assertEqual(len(normalized["program"]), 1)
+        # Check that the write call now directly contains the number 42
+        write_call = normalized["program"][0]
+        self.assertEqual(write_call["type"], "CallNode")
+        self.assertEqual(write_call["args"][0]["type"], "NumberNode")
+        self.assertEqual(write_call["args"][0]["value"], "42")
+
+    def test_find_reference_files(self):
+        """Verifies that finding multiple reference files works as expected."""
+        refs = repair.find_reference_files("b_l8_student.dap", self.data_dir)
+        self.assertGreaterEqual(len(refs), 1)
+        self.assertTrue(any("c_l8" in os.path.basename(r) for r in refs))
 
 if __name__ == "__main__":
     unittest.main()

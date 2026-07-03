@@ -1,0 +1,9 @@
+program Repaired_b_p3_student17
+dictionary
+    panjang, lebar : integer
+algorithm
+    read panjang
+    read lebar
+    write (panjang * lebar)
+    write ((panjang + lebar) * 2)
+endprogram

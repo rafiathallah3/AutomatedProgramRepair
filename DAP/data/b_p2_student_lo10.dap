@@ -1,0 +1,9 @@
+program CheckSign
+dictionary
+    x : integer
+algorithm
+    read x
+    while x > 0 do
+        write 1
+    endwhile
+endprogram
